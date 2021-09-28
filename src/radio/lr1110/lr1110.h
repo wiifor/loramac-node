@@ -76,8 +76,14 @@ typedef enum lr1110_hal_operating_mode_e
 } lr1110_hal_operating_mode_t;
 
 /*!
+ * Hardware IO IRQ callback function definition
+ */
+typedef void ( *lr1110_dio_irq_handler )( void* context );
+
+/*!
  * Radio hardware and global parameters
  */
+#ifndef __ZEPHYR__
 typedef struct lr1110_s
 {
     Gpio_t                      reset;
@@ -88,11 +94,36 @@ typedef struct lr1110_s
     lr1110_modulation_params_t  modulation_params;
     lr1110_packet_params_t      packet_params;
 } lr1110_t;
+#else
+#include <zephyr.h>
+#include <drivers/spi.h>
 
-/*!
- * Hardware IO IRQ callback function definition
- */
-typedef void ( *lr1110_dio_irq_handler )( void* context );
+#define HAVE_GPIO_TX_ENABLE DT_INST_NODE_HAS_PROP(0, tx_enable_gpios)
+#define HAVE_GPIO_RX_ENABLE DT_INST_NODE_HAS_PROP(0, rx_enable_gpios)
+
+typedef struct lr1110_s
+{
+    const struct device*         reset;
+    const struct device*         busy;
+    const struct device*         dio9;
+    struct gpio_callback dio9_irq_callback;
+	struct k_work dio9_irq_work;
+    lr1110_dio_irq_handler radio_dio_irq;
+#if HAVE_GPIO_TX_ENABLE
+	const struct device *tx_enable;
+#endif
+#if HAVE_GPIO_RX_ENABLE
+	const struct device *rx_enable;
+#endif
+    const struct device*         spi;
+    struct spi_config           spi_cfg;
+	struct spi_cs_control spi_cs;
+    lr1110_hal_operating_mode_t op_mode;
+    lr1110_modulation_params_t  modulation_params;
+    lr1110_packet_params_t      packet_params;
+} lr1110_t;
+extern lr1110_t LR1110;
+#endif
 
 /*!
  * Get radio operating mode
